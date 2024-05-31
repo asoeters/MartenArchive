@@ -37,18 +37,22 @@ app.MapGet("/", async (IDocumentStore store) =>
     await using (var session = store.LightweightSession())
     {
         session.Events.ArchiveStream(id);
+        session.SaveChanges();
     }
 
     await store.WaitForNonStaleProjectionDataAsync(20.Seconds());
 
-    string stateResultAfter = "";
+    string stateObjectResultAfter = "";
+    string streamStateResultAfter = "";
     await using (var session = store.QuerySession())
     {
+        var currentState = await session.Events.FetchStreamStateAsync(id);
+        streamStateResultAfter = ($"state should be archived state value is: {currentState?.IsArchived}");
         var state = session.Query<ValueDto>().FirstOrDefault(x => x.Id == id);
-        stateResultAfter = ($"state should be null but state value is: {state?.Value}");
+        stateObjectResultAfter = ($"state should be null but state value is: {state?.Value}");
     }
 
-    return Results.Ok<List<string>>([stateResultBefore, stateResultAfter]);
+    return Results.Ok<List<string>>([stateResultBefore,streamStateResultAfter, stateObjectResultAfter]);
 });
 app.Run();
 
